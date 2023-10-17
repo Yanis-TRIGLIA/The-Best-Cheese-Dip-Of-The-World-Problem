@@ -1,9 +1,9 @@
 # The_Santa_Claus_problem
 Ce projet est un exercice d'interprétation et de réalisation de problème lié à l'utilisation de sémaphore en C++.
 
-Pour ce projet, nous avons choisi un problème de sémaphore (dans notre cas le " The Santa Claus Problem ") dans le document " The Little Book of Semaphores " que l'on a glissé dans les sources du projet.
+Pour ce projet, nous avons choisi un problème de sémaphore (dans notre cas le " The Santa Claus Problem ") dans le document " The Little Book of Semaphores ".
 
-Nous avons donc assimiler et interpréter ce problème de sémaphore pour en créer une nouvelle situation et correspond aussi à la situation du " The Santa Claus Probleme "
+Nous avons donc assimiler et interpréter ce problème de sémaphore pour en créer une nouvelle situation qui correspond aussi à la situation du " The Santa Claus Probleme "
 
 
 
