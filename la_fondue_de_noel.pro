@@ -5,4 +5,3 @@ CONFIG -= qt
 
 SOURCES += \
         main.cpp \
-        main_antonin.cpp
