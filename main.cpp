@@ -18,10 +18,10 @@ vector<unsigned> orderedQueue;
 
 mutex Wait_CheeseHunter;
 mutex Wait_Cheese;
-condition_variable fondueReady;
+condition_variable CheeseReady;
 atomic<unsigned> nbCheeseHuntersReady(0);
 bool end_assistant ;
-bool give;
+bool theChefIsPreparingTheFondue = false;
 
 
 void getHelp(unsigned i){
@@ -30,15 +30,21 @@ void getHelp(unsigned i){
     cout << "je suis le commis N°: " << i << " et je demmande de l'aide" << endl;
     ++nbKitchenAssistantsWaitingForHelps;
     orderedQueue.push_back(i);
-    cout << "il y a " << nbKitchenAssistantsWaitingForHelps << " assistant qui ont bessoin d'aide"<<endl;
-    cout<<endl;
+    if(nbKitchenAssistantsWaitingForHelps == 1){
+
+        cout << "il y a un seul assistant qui à besoin d'aide"<<endl;
+        cout<<endl;
+    }
+    else{
+        cout << "il y a " << nbKitchenAssistantsWaitingForHelps << " assistants qui ont bessoin d'aide"<<endl;
+        cout<<endl;
+    }
 }
 
 void helpKitchenAssistants(){
 
     lock_guard<std::mutex> lock_assistants(kitchenAssistantsMutex);
 
-    //curently helping kitchen assistants -> ToDO : remember to change waiting values
     cout << "j'aide 3 assistant" << endl;
     cout<<endl;
 
@@ -63,16 +69,23 @@ void helpKitchenAssistants(){
 void giveCheese(){
     // must get called by cheese hunter when 3 stars swiss chef calls prepareCheeseFondue
     lock_guard<std::mutex> lock_give(Wait_Cheese);
-    cout<<"les fromages sont donnée pour la préparation de la fondue"<<endl;
+    cout<<"Le fromages n° : " << nbCheeseHuntersReady<<" et donnée pour la préparation de la fondue"<<endl;
     cout<<endl;
+
+    // update of cheeseHunterReady
+    nbCheeseHuntersReady.store(nbCheeseHuntersReady.load()+1);
+    //signal for prepareCheeseFondue()
+    CheeseReady.notify_one();
 
 }
 
 void prepareCheeseFondue() {
     //We block the preparation of the fondue until the nine cheeses are given.
     unique_lock<std::mutex> lock_without_cheeseHunter(Wait_CheeseHunter);
-    fondueReady.wait(lock_without_cheeseHunter, [] { return nbCheeseHuntersReady.load() == 9; });
     lock_without_cheeseHunter.unlock();
+
+    theChefIsPreparingTheFondue = true;
+    CheeseReady.wait(lock_without_cheeseHunter, [] { return nbCheeseHuntersReady.load() == 9; });
 
     //we release the assistants who need help and we put an end to the preparation of the fondue
     orderedQueue.clear();
@@ -86,32 +99,22 @@ void commingBackFromCheeseHunt(){
     lock_guard<std::mutex> lock_comming(cheeseHuntersMutex);
     ++nbCheeseHuntersThatCameBack;
 
-    if (nbCheeseHuntersThatCameBack == 9) {
-        // update of cheeseHunterReady
-        nbCheeseHuntersReady.store(9);
-        //signal for prepareCheeseFondue()
-        fondueReady.notify_one();
-    }
+
 }
 
 void cheeseHunter(unsigned i){
 
-    lock_guard<std::mutex> lock_hunter(Wait_CheeseHunter);
+    //lock_guard<std::mutex> lock_hunter(Wait_CheeseHunter);
     //the cheese hunter is seeking for the best cheese.
     chrono::microseconds val (experimental::fundamentals_v2::randint(2000, 20000));
     this_thread::sleep_for(val);
     commingBackFromCheeseHunt();
-    /*
-     * ToDo : waint until threeStarsSwissChef call prepareCheeseFondue then call giveCheese
-     */
     cout << "je suis le chasseur de fromage N°: " << i << " et je donne mon fromage" << endl;
-    cout<<endl;
-
-    //if all cheese is here launch giveCheese()
-    if(give == true)
-    {
-        giveCheese();
+    while(!theChefIsPreparingTheFondue){
+        //nothing
     }
+    giveCheese();
+
 }
 
 void kitchenAssistant(unsigned i){
@@ -123,7 +126,7 @@ void kitchenAssistant(unsigned i){
             getHelp(i);
         }else{
             // if the kitchen Assistant doesn't need help, it wait for random time to avoid having all the kitchenAssistants needing help everytime
-            chrono::microseconds val (experimental::fundamentals_v2::randint(200, 2000));
+            chrono::microseconds val (experimental::fundamentals_v2::randint(2000, 20000));
             this_thread::sleep_for(val);
         }
     }
@@ -136,7 +139,6 @@ void threeStarsSwissChef(){
         if(nbCheeseHuntersThatCameBack == 9)
         {
             //Called the preparation of fondue
-            give = true;
             prepareCheeseFondue();
             cout << "Fin" << endl;
             break;
@@ -152,6 +154,7 @@ void threeStarsSwissChef(){
 
 int main()
 {
+
     thread threeStarsSwissChefThread (threeStarsSwissChef);
 
     thread cheeseHunter1Thread(cheeseHunter, 1);
