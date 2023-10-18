@@ -1,4 +1,5 @@
-# The_Santa_Claus_problem
+<h1 align="center">🧀The Best Cheese Dip Of The World Problem🧀</h1> 
+<h2 align="center">(Basé sur le Santa clause problem)</h2>
 Ce projet est un exercice d'interprétation et de réalisation de problème lié à l'utilisation de sémaphore en C++.
 
 Pour ce projet, nous avons choisi un problème de sémaphore (dans notre cas le " The Santa Claus Problem ") dans le document " The Little Book of Semaphores ".
