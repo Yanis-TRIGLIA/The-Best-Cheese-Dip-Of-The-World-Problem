@@ -3,6 +3,8 @@
 #include <mutex>
 #include <vector>
 #include <experimental/random>
+#include <condition_variable>
+#include <atomic>
 
 using namespace std;
 
@@ -14,20 +16,31 @@ mutex threeStarsSwissChefMutex;
 vector<mutex> kitchenAssistantLockerMutex(10);
 vector<unsigned> orderedQueue;
 
+mutex Wait_CheeseHunter;
+mutex Wait_Cheese;
+condition_variable fondueReady;
+atomic<unsigned> nbCheeseHuntersReady(0);
+bool end_assistant ;
+bool give;
+
+
 void getHelp(unsigned i){
     kitchenAssistantLockerMutex[i].lock();
-    kitchenAssistantsMutex.lock();
+    lock_guard<std::mutex> lock_assistants_for_gethelp(kitchenAssistantsMutex);
     cout << "je suis le commis N°: " << i << " et je demmande de l'aide" << endl;
-        ++nbKitchenAssistantsWaitingForHelps;
+    ++nbKitchenAssistantsWaitingForHelps;
     orderedQueue.push_back(i);
     cout << "il y a " << nbKitchenAssistantsWaitingForHelps << " assistant qui ont bessoin d'aide"<<endl;
-    kitchenAssistantsMutex.unlock();
+    cout<<endl;
 }
 
 void helpKitchenAssistants(){
-    kitchenAssistantsMutex.lock();
+
+    lock_guard<std::mutex> lock_assistants(kitchenAssistantsMutex);
+
     //curently helping kitchen assistants -> ToDO : remember to change waiting values
     cout << "j'aide 3 assistant" << endl;
+    cout<<endl;
 
     chrono::microseconds val (experimental::fundamentals_v2::randint(0, 2000));
     this_thread::sleep_for(val);
@@ -44,25 +57,46 @@ void helpKitchenAssistants(){
     else
         cout << "erreur au niveaux du nombre d'assistant demandant de l'aide"<< endl;
 
-    kitchenAssistantsMutex.unlock();
+
 }
 
 void giveCheese(){
     // must get called by cheese hunter when 3 stars swiss chef calls prepareCheeseFondue
+    lock_guard<std::mutex> lock_give(Wait_Cheese);
+    cout<<"les fromages sont donnée pour la préparation de la fondue"<<endl;
+    cout<<endl;
+
 }
 
-void prepareCheeseFondue(){
+void prepareCheeseFondue() {
+    //We block the preparation of the fondue until the nine cheeses are given.
+    unique_lock<std::mutex> lock_without_cheeseHunter(Wait_CheeseHunter);
+    fondueReady.wait(lock_without_cheeseHunter, [] { return nbCheeseHuntersReady.load() == 9; });
+    lock_without_cheeseHunter.unlock();
+
+    //we release the assistants who need help and we put an end to the preparation of the fondue
+    orderedQueue.clear();
+    end_assistant = true;
     cout << "la fondue est prête" << endl;
-    kitchenAssistantsMutex.lock();
+    cout<<endl;
 }
 
 void commingBackFromCheeseHunt(){
-    cheeseHuntersMutex.lock();
+
+    lock_guard<std::mutex> lock_comming(cheeseHuntersMutex);
     ++nbCheeseHuntersThatCameBack;
-    cheeseHuntersMutex.unlock();
+
+    if (nbCheeseHuntersThatCameBack == 9) {
+        // update of cheeseHunterReady
+        nbCheeseHuntersReady.store(9);
+        //signal for prepareCheeseFondue()
+        fondueReady.notify_one();
+    }
 }
 
 void cheeseHunter(unsigned i){
+
+    lock_guard<std::mutex> lock_hunter(Wait_CheeseHunter);
     //the cheese hunter is seeking for the best cheese.
     chrono::microseconds val (experimental::fundamentals_v2::randint(2000, 20000));
     this_thread::sleep_for(val);
@@ -71,11 +105,18 @@ void cheeseHunter(unsigned i){
      * ToDo : waint until threeStarsSwissChef call prepareCheeseFondue then call giveCheese
      */
     cout << "je suis le chasseur de fromage N°: " << i << " et je donne mon fromage" << endl;
+    cout<<endl;
+
+    //if all cheese is here launch giveCheese()
+    if(give == true)
+    {
         giveCheese();
+    }
 }
 
 void kitchenAssistant(unsigned i){
-    while(true){
+
+    while(end_assistant == false){
         //simulate the fact that a kitchen assistant need help by random
         unsigned rand = experimental::fundamentals_v2::randint(0, 100);
         if ( rand <= 10){
@@ -90,17 +131,22 @@ void kitchenAssistant(unsigned i){
 
 void threeStarsSwissChef(){
     while (true){
-        threeStarsSwissChefMutex.lock();
+
+        lock_guard<std::mutex> lock_Chef(threeStarsSwissChefMutex);
         if(nbCheeseHuntersThatCameBack == 9)
         {
+            //Called the preparation of fondue
+            give = true;
             prepareCheeseFondue();
-            // signal to cheese hunter
+            cout << "Fin" << endl;
             break;
+
+
         }else if(nbKitchenAssistantsWaitingForHelps >= 3){
             //cout << "je suis le chef de cuissine et il y a " << nbKitchenAssistantsWaitingForHelps << " qui attende mon aide" << endl;
             helpKitchenAssistants();
         }
-        threeStarsSwissChefMutex.unlock();
+
     }
 }
 
